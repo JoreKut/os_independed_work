@@ -36,23 +36,30 @@ class CoolThread:
 
 if __name__ == '__main__':
 
-    priority = [random.randint(1, 11) for i in range(10)]
-    priority.sort()
-    b = collections.Counter(priority)  # группируем по приоритетам (количество)
-    print(b.items())
+    iteration = 0
 
-    t_list = []
+    while True:
 
-    for key, val in b.items():
-        for i in range(val):
-            t_list.append(CoolThread(key, 6 / val))
+        priority = [random.randint(1, 10) for i in range(10)]
+        priority.sort()
+        b = collections.Counter(priority)  # группируем по приоритетам (количество)
+        print(b.items())
 
-    for i in range(1, 11):
+        mx = max(b.keys())
+        print(mx)
+        input()
+        t_list = []
 
-        buff = list(filter(lambda t: t.p == i, t_list))
-        barrier = threading.Barrier(len(buff) + 1)
+        for key, val in b.items():
+            for i in range(val):
+                t_list.append(CoolThread(key, 3 / val))
 
-        for t in buff:
-            t.run()
-        barrier.wait()
+        for i in range(1, mx if iteration == 0 else mx + 1):
+
+            buff = list(filter(lambda t: t.p == i and i != mx, t_list))
+            barrier = threading.Barrier(len(buff) + 1)
+
+            for t in buff:
+                t.run()
+            barrier.wait()
 
