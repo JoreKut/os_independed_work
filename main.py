@@ -24,13 +24,14 @@ class CoolThread:
             if time.monotonic() - start_time >= self.t:
                 break
         print(self.p, 'thread is ended')
+        barrier.wait()
 
     def change_timeout(self):
         pass
 
     def run(self):
         t = threading.Thread(target=self.f)
-        barrier.wait()
+        t.start()
 
 
 if __name__ == '__main__':
@@ -50,6 +51,7 @@ if __name__ == '__main__':
 
         buff = list(filter(lambda t: t.p == i, t_list))
         barrier = threading.Barrier(len(buff) + 1)
+
         for t in buff:
             t.run()
         barrier.wait()
