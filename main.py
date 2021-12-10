@@ -11,18 +11,18 @@ global barrier
 
 class CoolThread:
 
-    def __init__(self, p, t):
-        self.p = p
-        self.t = t
+    def __init__(self, priority, timeout):
+        self.priority = priority
+        self.timeout = timeout
 
     def f(self):
         start_time = time.monotonic()
         while True:
             with file_lock:
-                print(self.p, threading.current_thread().name)
-            if time.monotonic() - start_time >= self.t:
+                print(self.priority, threading.current_thread().name)
+            if time.monotonic() - start_time >= self.timeout:
                 break
-        print(self.p, 'thread is ended')
+        print(self.priority, 'thread is ended')
         barrier.wait()
 
     def change_timeout(self):
@@ -34,9 +34,27 @@ class CoolThread:
 
 
 def get_thread_pool():
-    priority = [random.randint(1, 10) for i in range(10)]
-    priority.sort()
-    return priority
+    pool = [random.randint(1, 10) for i in range(10)]
+    pool.sort()
+    return pool
+
+
+def fun(total_time):
+
+    k = [ti.timeout/total_time for ti in thread_list]
+
+    a = [1 - ki for ki in k]
+    a_sum = sum(a)
+
+    r = [a_sum - ai for ai in a]
+    r_sum = sum(r)
+
+    new_time_lst = [60*ri/r_sum for ri in r]
+
+    print('[NEW TIME-LIST]', new_time_lst)
+
+    for obj, ti in zip(thread_list, new_time_lst):
+        obj.timeout = ti
 
 
 if __name__ == '__main__':
@@ -87,35 +105,44 @@ if __name__ == '__main__':
                 |                                                                                       |
                 +---------------------------------------------------------------------------------------+  
                 
-        
+                
                 
     '''
+
+    time_for_each_group = 2
 
     iteration = 0
     s = 0
 
     priority = get_thread_pool()
 
-    for i in range(1):
+    CONDITION = True
+
+    while CONDITION:
 
         b = collections.Counter(priority)  # группируем по приоритетам (количество)
-        print(b.items())
-
         group_count = len(b.items())
-
         mx = max(b.keys())
-        print(mx)
-        input()
-        t_list = []
 
+        input()
+
+        thread_list = []
         for key, val in b.items():
             for i in range(val):
-                t_list.append(CoolThread(key, 2 / val))
+                thread_list.append(CoolThread(key, time_for_each_group / val))
 
-        for i in range(1, mx if iteration == 0 else mx + 1):
+        for i in (list(b.keys())[:-1] if iteration == 0 else list(b.keys())):
+            total_time_ = time_for_each_group * (group_count if iteration != 0 else (group_count - 1))
+            print(total_time_)
+            fun(total_time_)
+            input()
 
-            buff = list(filter(lambda t: t.p == i and i != mx, t_list))
-            barrier = threading.Barrier(len(buff) + 1)
-            for t in buff:
-                t.run()
-            barrier.wait()
+            '''
+                buff = list(filter(lambda t: t.p == i and i != mx, t_list))
+                barrier = threading.Barrier(len(buff) + 1)
+                for t in buff:
+                    t.run()
+                barrier.wait()
+            '''
+
+        CONDITION = False
