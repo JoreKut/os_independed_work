@@ -3,62 +3,67 @@ import time
 import threading
 import random
 
-
 file_lock = threading.Lock()
 
 global barrier
 
+'''
+    def fun(total_time):
+    
+        k = [ti.timeout/total_time for ti in thread_list]
+    
+        a = [1 - ki for ki in k]
+        a_sum = sum(a)
+    
+        r = [a_sum - ai for ai in a]
+        r_sum = sum(r)
+    
+        new_time_lst = [60*ri/r_sum for ri in r]
+    
+        print('[NEW TIME-LIST]', new_time_lst)
+    
+        for obj, ti in zip(thread_list, new_time_lst):
+            obj.timeout = ti
+'''
 
-class CoolThread:
 
-    def __init__(self, priority, timeout):
+class TimeThread:
+
+    def __init__(self, file_path, priority):
+        self.timeout = 0
         self.priority = priority
-        self.timeout = timeout
+        self.file_path = file_path
 
-    def f(self):
-        start_time = time.monotonic()
+    def set_timeout(self, timeout_):
+        self.timeout = timeout_
+
+    def write_in_file(self):
+        start = time.monotonic()
         while True:
-            with file_lock:
-                print(self.priority, threading.current_thread().name)
-            if time.monotonic() - start_time >= self.timeout:
+            with open(self.file_path, 'w') as file:
+                file.write(str(self.priority))
+            if time.monotonic() - start >= self.timeout:
                 break
-        print(self.priority, 'thread is ended')
+        print(f'{self.file_path} {self.priority} Ended')
         barrier.wait()
 
-    def change_timeout(self):
-        pass
-
-    def run(self):
-        t = threading.Thread(target=self.f)
+    def start(self):
+        t = threading.Thread(target=self.write_in_file)
         t.start()
 
 
-def get_thread_pool():
-    pool = [random.randint(1, 10) for i in range(10)]
-    pool.sort()
-    return pool
+def get_threads_by_priority(thread_lst, priority):
+    return list(filter(lambda x: x.priority == priority, thread_lst))
 
 
-def fun(total_time):
-
-    k = [ti.timeout/total_time for ti in thread_list]
-
-    a = [1 - ki for ki in k]
-    a_sum = sum(a)
-
-    r = [a_sum - ai for ai in a]
-    r_sum = sum(r)
-
-    new_time_lst = [60*ri/r_sum for ri in r]
-
-    print('[NEW TIME-LIST]', new_time_lst)
-
-    for obj, ti in zip(thread_list, new_time_lst):
-        obj.timeout = ti
+def check_condition(time_list):
+    for ti in time_list:
+        if not 5 <= ti <= 7:
+            return True
+    return False
 
 
 if __name__ == '__main__':
-
     '''
         
         b = { (k, v), ... }  (k, v) = (priority, number) 
@@ -111,38 +116,81 @@ if __name__ == '__main__':
 
     time_for_each_group = 2
 
-    iteration = 0
-    s = 0
+    # список из 10 чисел
+    priority_list = [random.randint(1, 10) for i in range(10)]
+    priority_list.sort()
 
-    priority = get_thread_pool()
+    thread_list = []
+
+    # Формируем потоки - назначаем каждому файл и приоритет
+    for key, pr in enumerate(priority_list):
+        thread_list.append(TimeThread(f'{key}.txt', pr))
+
+    # Словраь (приоритет : кол-во потоков с этим приоритетом)
+    # Количество вхождений каждого приоритета
+    priority_dict = collections.Counter(priority_list)
+    print(priority_dict)
+    # Пробегаемся по каждому приоритету кроме последнего
+    for pr in list(priority_dict.keys())[:-1]:
+        # Инициализируем барьер на n+1 потоков
+        barrier = threading.Barrier(priority_dict.get(pr) + 1)
+        # Определили время для текущего приоритета
+        timeout = time_for_each_group / priority_dict.get(pr)
+
+        # Запускаем все потоки с этим приоритетом
+        for thread in get_threads_by_priority(thread_list, pr):
+            thread.set_timeout(timeout)
+            thread.start()
+        barrier.wait()
+
+        # Закидываем текущую группу потоков в минимальный приоритет
+        for thread in get_threads_by_priority(thread_list, pr):
+            thread.priority = list(priority_dict.keys())[-1]
+
+    print('--------------------------------------------------------------')
+
+    # 9-ый пункт ---------------------------------------------------------
+    # Теперь у нас все потоки одного приоритета
 
     CONDITION = True
 
     while CONDITION:
 
-        b = collections.Counter(priority)  # группируем по приоритетам (количество)
-        group_count = len(b.items())
-        mx = max(b.keys())
+        # Суммарное время всех потоков
+        total_time = sum([obj.timeout for obj in thread_list])
 
-        input()
+        # Нахождение новых коэффициентов
 
-        thread_list = []
-        for key, val in b.items():
-            for i in range(val):
-                thread_list.append(CoolThread(key, time_for_each_group / val))
+        t = [obj.timeout for obj in thread_list]
 
-        for i in (list(b.keys())[:-1] if iteration == 0 else list(b.keys())):
-            total_time_ = time_for_each_group * (group_count if iteration != 0 else (group_count - 1))
-            print(total_time_)
-            fun(total_time_)
-            input()
+        a = [(total_time if ti == 0 else ti) / total_time for ti in t]
 
-            '''
-                buff = list(filter(lambda t: t.p == i and i != mx, t_list))
-                barrier = threading.Barrier(len(buff) + 1)
-                for t in buff:
-                    t.run()
-                barrier.wait()
-            '''
+        b = [1 - ai for ai in a]
 
-        CONDITION = False
+        b_sum = sum(b)
+
+        c = [b_sum if bi == 0 else bi/b_sum for bi in b]
+
+        X = sum(c)
+
+        # Новое время
+        new_time_list = [ci/X * 60 for ci in c]
+        print(new_time_list)
+
+        barrier = threading.Barrier(10 + 1)
+
+        for thread, ti in zip(thread_list, new_time_list):
+            thread.set_timeout(ti)
+            thread.start()
+        barrier.wait()
+
+        CONDITION = check_condition(new_time_list)
+
+
+
+
+
+
+
+
+
